@@ -1,0 +1,65 @@
+The module hooks early in the apache request processing.
+If the module is configured in the Apache configuration the configured program will be run.
+The program receives request information in environment variables.
+
+The program then makes decisions about the request and writes what it wants to be done to stdout.
+
+The module will read these commands from the program and modify the request accordingly.
+
+First example of how a configuration might look like.
+
+if(host("www.some.where")) {
+        if(path_match("/", "pcms/", RECSTART, "en/", "admin/", "showpic.php", RECSTOP, ENDOFLINE) ||
+           path_match("/", "pcms/", RECSTART, "favicon.ico", RECSTOP, ENDOFLINE)) {
+                proxy_host("www.some.where");
+                proxy_reverse("http://some.where.else/path/", "/");
+        	proxy_reverse("https://some.where.else/path/", "/");
+                proxy_to("http://some.where.else/path/", recording[0]);
+                done();
+        }
+}
+
+And in Apache:
+
+httpd.conf
+----------
+
+ReqFilter <prg> invoked for each request. Env contains request informaton.
+ReqFilterError <prg> invoked if error. Env contains information about failed request.
+ReqFilterLogLevel (DEBUG|INFO|WARN|ERR)
+
+
+Output from your ReqFilter program:
+-----------------------------------
+
+DOCUMENT_URI=URI               -- if URI begins with '/' rewrite local path. If not treat as proxy request to URI
+Proxy-reverse-alias=real,fake  -- URI translation of headers when proxying
+Substitute=real,fake           -- replace occurances of <real> with <fake> within the output document
+Proxy-host=HOSTNAME            -- hostname for proxyrequest
+IN::Host=VHOST	 -- set incoming host header and switch vhost
+Filter=NNN       -- add output filter named 'NNN' to request
+Status=NNN       -- return HTTP status NNN to client
+Redirect=LOC     -- redirect to URI 'LOC'
+Filename=FN      -- serve file 'FN'
+Handler=HHH	 -- set handler to HHH
+CGI=FN           -- execute 'FN' as CGI
+Export=NAME=VAL  -- export variable to CGI
+QUERY_STRING=S   -- set HTTP query string to 'S'
+PATH_INFO=PATH   -- set PATH_INFO for CGI.
+IN::NNN=VVV      -- set incoming request header 'NNN' to 'VVV'
+OUT::NNN=VVV     -- set outgoing header 'NNN' to 'VVV'
+ERR::NNN=VVV     -- set outgoing error header 'NNN' to 'VVV' (If status is set to error).
+
+
+Environment variables set for invoked ReqFilter program
+-------------------------------------------------------
+IN::<header>     -- one variable for each input header in request.
+DOCUMENT_URI     -- Document path requested
+QUERY_STRING     -- What comes after requestpath (after '?').
+method           -- GET, POST etc.
+protocol         -- 0.9, 1.0, 1.1
+servername       -- name of the server according to apache
+remote_ip        -- client IP address
+local_ip         -- server IP address
+status	         -- status of the response. Only for ReqFilterError.
+
