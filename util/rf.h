@@ -70,6 +70,32 @@ int _proxy_to(const char *URI, ...);
 #define proxy_to(URI, A...) _proxy_to(URI,##A, NULL)
 
 /*
+ * Path to balancer filesystem storage
+ */
+int balancer_storage(const char *path);
+
+/*
+ * Define a balancer backend
+ */
+int backend(const char *set, const char *uri);
+
+/*
+ * Select a backend from a set
+ */
+const char *backend_select(const char *set);
+
+/*
+ * Fail a backend
+ */
+int backend_fail(const char *set, const char *uri);
+
+/*
+ * Redirect client
+ */
+int _redirect_to(const char *URI, ...);
+#define redirect_to(URI, A...) _redirect_to(URI, ##A, NULL)
+
+/*
  * We are done processing and return to the request handling.
  */
 void done();

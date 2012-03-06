@@ -3,6 +3,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <pcre.h>
 
@@ -13,6 +16,30 @@ char recording[NRECORDS][RECSIZE];
 char regex_group[NRECORDS][RECSIZE];
 
 static int _rf_debug;
+
+struct backend {
+	const char *uri;
+	const char *filename;
+	struct backend *next;
+};
+
+struct backend_set {
+	int n;
+	const char *name;
+	struct backend *backends;
+	struct backend_set *next;
+};
+
+static const char *_rf_balance_dir = "/tmp";
+
+struct {
+	struct backend_set *backend_sets;
+} _rf;
+
+static void errout()
+{
+	_exit(1);
+}
 
 /*
  * Query hostname DNS-format.
@@ -235,6 +262,169 @@ int _proxy_to(const char *URI, ...)
 	va_end(ap);
 	return 0;
 }
+
+struct backend_set *_rf_backend_set(const char *name)
+{
+	struct backend_set *set;
+	for(set = _rf.backend_sets; set; set = set->next) {
+		if(strcmp(set->name, name)==0)
+			return set;
+	}
+	return NULL;
+}
+
+static char *_rf_mkfilename(const char *uri)
+{
+	char *buf, *p;
+
+	buf = malloc(strlen(uri)*3 + strlen(_rf_balance_dir) + 2);
+	strcpy(buf, _rf_balance_dir);
+	p = buf + strlen(_rf_balance_dir);
+	*p++ = '/';
+	for(;*uri;uri++) {
+		if(*uri == '/') {
+			*p++ = '%';
+			*p++ = '2';
+			*p++ = 'f';
+			uri++;
+		} else {
+			*p++ = *uri++;
+		}
+	}
+	return buf;
+}
+
+/*
+ * Define a balancer backend
+ */
+int backend(const char *name, const char *uri)
+{
+	struct backend_set *set;
+	struct backend *be;
+
+	set = _rf_backend_set(name);
+	if(!set) {
+		set = malloc(sizeof(struct backend_set));
+		if(set) {
+			set->n = 0;
+			set->name = name;
+			set->next = _rf.backend_sets;
+			_rf.backend_sets = set;
+		} else {
+			return -1;
+		}
+	}
+
+	be = malloc(sizeof(struct backend));
+	if(be) {
+		be->uri = uri;
+		be->filename = _rf_mkfilename(uri);
+		be->next = set->backends;
+		set->backends = be;
+		set->n++;
+		return 0;
+	}
+
+	return -1;
+}
+
+static unsigned int _rf_client_hash()
+{
+	char *u = getenv("remote_ip");
+	unsigned int h = 0;
+	if(!u) return 0;
+	
+	while(*u) h += *u++;
+	return h;
+}
+
+static int _rf_backend_failed(struct backend *be)
+{
+	struct stat statb;
+	return stat(be->filename, &statb) == 0;
+}
+
+/*
+ * Path to balancer filesystem storage
+ */
+int balancer_storage(const char *path)
+{
+	/*
+	 * FIXME: verify that storage is writable?
+	 */
+	_rf_balance_dir = path;
+	return 0;
+}
+
+/*
+ * Select a backend from a set
+ */
+const char *backend_select(const char *name)
+{
+	struct backend_set *set;
+	struct backend *be, *prev;
+	unsigned int h = _rf_client_hash();
+	int n;
+	
+	set = _rf_backend_set(name);
+	if(!set) errout();
+	
+	while(1) {
+		n = h % set->n;
+		be=set->backends;
+		prev=NULL;
+		for(;n;n--) {
+			prev = be;
+			be=be->next;
+		}
+		
+		if(!be) errout();
+		
+		if(!_rf_backend_failed(be))
+			return be->uri;
+		
+		set->n--;
+		if(prev) {
+			prev->next = be->next;
+		} else {
+			set->backends = be->next;
+		}
+	}
+	
+	errout();
+	return "";
+}
+
+static struct backend *_rf_backend(struct backend_set *set, const char *uri)
+{
+	struct backend *be;
+	for(be=set->backends;be;be=be->next)
+		if(!strcmp(be->uri, uri))
+			return be;
+	return NULL;
+}
+
+/*
+ * Fail a backend
+ */
+int backend_fail(const char *name, const char *uri)
+{
+	struct backend_set *set;
+	struct backend *be;
+	int fd;
+
+	set = _rf_backend_set(name);
+	be = _rf_backend(set, uri);
+
+	fd = open(be->filename, O_CREAT, 0660);
+	if(fd >= 0) close(fd);
+	return 0;
+}
+
+/*
+ * Redirect client
+ */
+int _redirect_to(const char *URI, ...);
 
 /*
  * We are done processing and return to the request handling.
