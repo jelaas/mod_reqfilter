@@ -509,6 +509,63 @@ int _redirect_to(const char *URI, ...)
 	return 0;
 }
 
+/*
+ * Serve specific file
+ */
+int serve_file(const char *filepath);
+
+/*
+ * Execute specific CGI
+ */
+int exec_cgi(const char *cgipath);
+
+/*
+ * set incoming host header and switch vhost
+ */
+int change_vhost(const char *hostname);
+
+/*
+ * add output filter named 'filtername' to request
+ */
+int add_filter(const char *filtername);
+
+/*
+ * return HTTP status NNN to client
+ */
+int return_status(int status);
+
+/*
+ * replace occurances of <real> with <fake> within the output document
+ */
+int substitute_text(const char *real, const char *fake);
+
+/*
+ * set handler to 'handler'
+ */
+int set_handler(const char *handler);
+
+/*
+ * export variable to CGI
+ */
+int export_var(const char *name, const char *value);
+
+/*
+ * set HTTP query string to 'S'
+ */
+int set_query_string(const char *value);
+
+/*
+ * PATH_INFO=PATH   -- set PATH_INFO for CGI. 
+ */
+int set_path_info(const char *value);
+
+/*
+ * set header named 'name' to 'value'
+ * type = IN|OUT|ERR
+ */
+int set_header(int type, const char *name, const char *value);
+
+
 void _rf_init()
 {
 	DOCUMENT_URI = getenv("DOCUMENT_URI");
