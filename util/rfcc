@@ -7,7 +7,7 @@ echo "char const _TC[] = { " > $1_text.h
 (a=$(cat $1.conf);for (( i=0; i<${#a}; i++ )); do printf %d, "'${a:i:1}"; done) >> $1_text.h
 echo "0 };" >> $1_text.h
 
-(echo -e "#include <string.h>\\n#include <unistd.h>\\n#include \"$1_text.h\"\\n#include \"rf.h\"\\nint main(int argc, char **argv){if(argc>1&&!strcmp(argv[1],\"-L\")){write(1,_TC,strlen(_TC));_exit(0);}if(argc>1&&!strcmp(argv[1],\"-D\"))debug();"; cat $1.conf; echo "_exit(0);}") > $T
+(echo -e "#include <string.h>\\n#include <unistd.h>\\n#include \"$1_text.h\"\\n#include \"rf.h\"\\nint main(int argc, char **argv){if(argc>1&&!strcmp(argv[1],\"-L\")){write(1,_TC,strlen(_TC));_exit(0);}if(argc>1&&!strcmp(argv[1],\"-D\"))debug();_rf_init();"; cat $1.conf; echo "_exit(0);}") > $T
 if ! gcc -Wall -c -x c -o $1.o - < $T; then
     echo $T failed
     exit 1

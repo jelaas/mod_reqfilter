@@ -14,6 +14,8 @@
 
 char recording[NRECORDS][RECSIZE];
 char regex_group[NRECORDS][RECSIZE];
+char *DOCUMENT_URI;
+char *QUERY_STRING;
 
 static int _rf_debug;
 
@@ -41,6 +43,19 @@ static void errout()
 	_exit(1);
 }
 
+static char *concat2(const char *s1, const char *s2)
+{
+	char *s;
+	s = malloc(strlen(s1)+strlen(s2)+1);
+	if(s) {
+		strcpy(s, s1);
+		strcpy(s+strlen(s1), s2);
+		return s;
+	}
+	errout();
+	return "";
+}
+
 /*
  * Query hostname DNS-format.
  * Example: host("www.aaa.bb")
@@ -61,7 +76,7 @@ int host(const char *hostname)
  */
 int path(const char *path)
 {
-	char *u = getenv("DOCUMENT_URI");
+	char *u = DOCUMENT_URI;
 	if(!u) return 0;
 	if(_rf_debug) fprintf(stderr, "path() strcmp(\"%s\", \"%s\") == %d\n", path, u, strcmp(path, u));
 	return strcmp(path, u)==0;
@@ -72,7 +87,7 @@ int path(const char *path)
  */
 int path_prefix(const char *path)
 {
-	char *u = getenv("DOCUMENT_URI");
+	char *u = DOCUMENT_URI;
 	if(!u) return 0;
 	if(_rf_debug) fprintf(stderr, "path_prefix() strncmp(\"%s\", \"%s\", %d) == %d\n", path, u, strlen(path), strncmp(path, u, strlen(path)));
         return strncmp(path, u, strlen(path))==0;
@@ -98,7 +113,7 @@ int _path_match( const char *noop, ...)
 	int cmpstatus = 1;
 	va_list ap;
 	
-	path = getenv("DOCUMENT_URI");
+	path = DOCUMENT_URI;
 	if(!path) return 0;
 
 	va_start(ap, noop);
@@ -221,7 +236,7 @@ int regex(const char *buffer, const char *expr)
  */
 int path_regex(const char *expr)
 {
-	char *u = getenv("DOCUMENT_URI");
+	char *u = DOCUMENT_URI;
 	if(!u) return 0;
 	return regex(u, expr);
 }
@@ -251,15 +266,26 @@ int _proxy_to(const char *URI, ...)
 {
 	const char *p;
 	va_list ap;
+	char *buf;
+	size_t bufsize = 1024;
 
-	va_start(ap, URI);
-	printf("DOCUMENT_URI=%s", URI);
+	buf = malloc(bufsize);
+	if(!buf) errout();
+	*buf = 0;
 	
+	va_start(ap, URI);
 	while( (p=va_arg(ap, char *)) ) {
-		printf("%s", p);
+		if(strlen(buf) + strlen(p) >= bufsize) {
+			bufsize*=2;
+			buf = realloc(buf, bufsize);
+			if(!buf) errout();
+		}
+		strcat(buf, p);
 	}
-	printf("\n");
 	va_end(ap);
+	
+	printf("DOCUMENT_URI=%s%s\n", URI, buf);
+	
 	return 0;
 }
 
@@ -310,6 +336,7 @@ int backend(const char *name, const char *uri)
 			set->name = name;
 			set->next = _rf.backend_sets;
 			_rf.backend_sets = set;
+			if(_rf_debug) fprintf(stderr, "backend() created set \"%s\"\n", name);
 		} else {
 			return -1;
 		}
@@ -322,6 +349,7 @@ int backend(const char *name, const char *uri)
 		be->next = set->backends;
 		set->backends = be;
 		set->n++;
+		if(_rf_debug) fprintf(stderr, "backend() backend defined \"%s\"\n", uri);
 		return 0;
 	}
 
@@ -341,7 +369,7 @@ static unsigned int _rf_client_hash()
 static int _rf_backend_failed(struct backend *be)
 {
 	struct stat statb;
-	return stat(be->filename, &statb) == 0;
+	return stat(concat2(be->filename, ".failed"), &statb) == 0;
 }
 
 /*
@@ -353,6 +381,7 @@ int balancer_storage(const char *path)
 	 * FIXME: verify that storage is writable?
 	 */
 	_rf_balance_dir = path;
+	if(_rf_debug) fprintf(stderr, "balancer_storage() set to \"%s\"\n", path);
 	return 0;
 }
 
@@ -380,8 +409,11 @@ const char *backend_select(const char *name)
 		
 		if(!be) errout();
 		
-		if(!_rf_backend_failed(be))
+		if(!_rf_backend_failed(be)) {
+			if(_rf_debug) fprintf(stderr, "backend_select(\"%s\") selected: \"%s\"\n", name, be->uri);
 			return be->uri;
+		}
+		if(_rf_debug) fprintf(stderr, "backend_select(\"%s\") skipping: \"%s\"\n", name, be->uri);
 		
 		set->n--;
 		if(prev) {
@@ -412,19 +444,78 @@ int backend_fail(const char *name, const char *uri)
 	struct backend_set *set;
 	struct backend *be;
 	int fd;
+	char *fn;
 
 	set = _rf_backend_set(name);
 	be = _rf_backend(set, uri);
 
-	fd = open(be->filename, O_CREAT, 0660);
-	if(fd >= 0) close(fd);
+	fn = concat2(be->filename, ".failed");
+	fd = open(fn, O_CREAT, 0660);
+	if(fd >= 0) {
+		if(_rf_debug) fprintf(stderr, "backend_fail(\"%s\", \"%s\") done.\n", name, be->uri);
+		close(fd);
+	} else {
+		if(_rf_debug) fprintf(stderr, "backend_fail(\"%s\", \"%s\") error.\n", name, be->uri);
+	}
+	return 0;
+}
+
+/*
+ * Activate a failed backend
+ */
+int backend_unfail(const char *name, const char *uri)
+{
+	struct backend_set *set;
+	struct backend *be;
+	char *fn;
+
+	set = _rf_backend_set(name);
+	be = _rf_backend(set, uri);
+
+	fn = concat2(be->filename, ".failed");
+	if(unlink(fn)) {
+		if(_rf_debug) fprintf(stderr, "backend_unfail(\"%s\", \"%s\") done.\n", name, be->uri);
+	}
 	return 0;
 }
 
 /*
  * Redirect client
  */
-int _redirect_to(const char *URI, ...);
+int _redirect_to(const char *URI, ...)
+{
+	const char *p;
+	va_list ap;
+	char *buf;
+	size_t bufsize = 1024;
+
+	buf = malloc(bufsize);
+	if(!buf) errout();
+	*buf = 0;
+	
+	va_start(ap, URI);
+	while( (p=va_arg(ap, char *)) ) {
+		if(strlen(buf) + strlen(p) >= bufsize) {
+			bufsize*=2;
+			buf = realloc(buf, bufsize);
+			if(!buf) errout();
+		}
+		strcat(buf, p);
+	}
+	va_end(ap);
+	
+	printf("Redirect=%s%s\n", URI, buf);
+	
+	return 0;
+}
+
+void _rf_init()
+{
+	DOCUMENT_URI = getenv("DOCUMENT_URI");
+	QUERY_STRING = getenv("QUERY_STRING");
+	if(!DOCUMENT_URI) DOCUMENT_URI="/";
+	if(!QUERY_STRING) QUERY_STRING="";
+}
 
 /*
  * We are done processing and return to the request handling.

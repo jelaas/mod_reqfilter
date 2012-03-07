@@ -11,6 +11,8 @@
 #ifndef RF_INTERNAL
 extern char recording[NRECORDS][RECSIZE];
 char regex_group[NRECORDS][RECSIZE];
+extern char *DOCUMENT_URI;
+char *QUERY_STRING;
 #endif
 /*
  * Query hostname DNS-format.
@@ -101,5 +103,7 @@ int _redirect_to(const char *URI, ...);
 void done();
 
 void debug();
+
+void _rf_init();
 
 #endif
