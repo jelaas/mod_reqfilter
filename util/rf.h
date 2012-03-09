@@ -100,17 +100,20 @@ int _redirect_to(const char *URI, ...);
 /*
  * Serve specific file
  */
-int serve_file(const char *filepath);
+int _serve_file(const char *filepath, ...);
+#define serve_file(filepath, A...) _serve_file(filepath, ##A, NULL)
 
 /*
  * Execute specific CGI
  */
-int exec_cgi(const char *cgipath);
+int _exec_cgi(const char *cgipath, ...);
+#define exec_cgi(filepath, A...) _serve_file(filepath, ##A, NULL)
 
 /*
  * set incoming host header and switch vhost
  */
-int change_vhost(const char *hostname);
+int _change_vhost(const char *hostname, ...);
+#define change_vhost(hostname, A...) _change_vhost(hostname, ##A, NULL)
 
 /*
  * add output filter named 'filtername' to request
@@ -135,23 +138,40 @@ int set_handler(const char *handler);
 /*
  * export variable to CGI
  */
-int export_var(const char *name, const char *value);
+int _export_var(const char *name, const char *value, ...);
+#define export_var(name, value, A...) _export_var(name, value, ##A, NULL)
 
 /*
  * set HTTP query string to 'S'
  */
-int set_query_string(const char *value);
+int _set_query_string(const char *value, ...);
+#define set_query_string(value, A...) _set_query_string(value, ##A, NULL)
 
 /*
  * PATH_INFO=PATH   -- set PATH_INFO for CGI. 
  */
-int set_path_info(const char *value);
+int _set_path_info(const char *value, ...);
+#define set_path_info(value, A...) _set_path_info(value, ##A, NULL)
 
 /*
  * set header named 'name' to 'value'
  * type = IN|OUT|ERR
  */
-int set_header(int type, const char *name, const char *value);
+int _set_header(int type, const char *name, const char *value, ...);
+#define set_header(type, name, value, A...) _set_header(type, name, value, ##A, NULL)
+
+/*
+ * Compare value of cookie named 'name' with 'value'.
+ */
+int _cookie(const char *name, const *value, ...);
+#define cookie(name, value, A...) _cookie(name, value, ##A, NULL)
+
+/*
+ * Compare value of query_string field
+ * The empty string matches field that is present but without a value
+ */
+int _query_field(const char *field, const char *value, ...);
+#define query_field(field, value, ##A, NULL);
 
 /*
  * We are done processing and return to the request handling.
