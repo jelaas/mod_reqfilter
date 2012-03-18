@@ -8,6 +8,10 @@
 #define RECSIZE 2048
 #define NRECORDS 8
 
+#define IN 1
+#define OUT 2
+#define ERR 3
+
 #ifndef RF_INTERNAL
 extern char recording[NRECORDS][RECSIZE];
 char regex_group[NRECORDS][RECSIZE];
@@ -163,7 +167,7 @@ int _set_header(int type, const char *name, const char *value, ...);
 /*
  * Compare value of cookie named 'name' with 'value'.
  */
-int _cookie(const char *name, const *value, ...);
+int _cookie(const char *name, const char *value, ...);
 #define cookie(name, value, A...) _cookie(name, value, ##A, NULL)
 
 /*
@@ -171,7 +175,7 @@ int _cookie(const char *name, const *value, ...);
  * The empty string matches field that is present but without a value
  */
 int _query_field(const char *field, const char *value, ...);
-#define query_field(field, value, ##A, NULL);
+#define query_field(field, value, A...) query_field(field, value, ##A, NULL)
 
 /*
  * We are done processing and return to the request handling.

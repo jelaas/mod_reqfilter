@@ -43,6 +43,25 @@ static void errout()
 	_exit(1);
 }
 
+static const char *_va_buf(va_list *ap)
+{
+        const char *p;
+	char *buf;
+        size_t bufsize = 1024;
+	buf = malloc(bufsize);
+        if(!buf) errout();
+        *buf = 0;
+	while( (p=va_arg(*ap, char *)) ) {
+                if(strlen(buf) + strlen(p) >= bufsize) {
+                        bufsize*=2;
+                        buf = realloc(buf, bufsize);
+                        if(!buf) errout();
+                }
+                strcat(buf, p);
+        }
+	return buf;
+}
+
 static char *concat2(const char *s1, const char *s2)
 {
 	char *s;
@@ -54,6 +73,16 @@ static char *concat2(const char *s1, const char *s2)
 	}
 	errout();
 	return "";
+}
+
+static char *_substr(const char *s, int len)
+{
+	char *n;
+
+	n = malloc(len+1);
+	strncpy(n, s, len);
+	n[len] = 0;
+	return n;
 }
 
 /*
@@ -512,78 +541,193 @@ int _redirect_to(const char *URI, ...)
 /*
  * Serve specific file
  */
-int _serve_file(const char *filepath, ...);
-#define serve_file(filepath, A...) _serve_file(filepath, ##A, NULL)
+int _serve_file(const char *filepath, ...)
+{
+	va_list ap;
+	va_start(ap, filepath);
+	printf("Filename=%s%s\n", filepath, _va_buf(&ap));
+	va_end(ap);
+	return 0;
+}
 
 /*
  * Execute specific CGI
  */
-int _exec_cgi(const char *cgipath, ...);
-#define exec_cgi(filepath, A...) _serve_file(filepath, ##A, NULL)
+int _exec_cgi(const char *cgipath, ...)
+{
+        va_list ap;
+        va_start(ap, cgipath);
+        printf("CGI=%s%s\n", cgipath, _va_buf(&ap));
+        va_end(ap);
+        return 0;
+}
 
 /*
  * set incoming host header and switch vhost
  */
-int _change_vhost(const char *hostname, ...);
-#define change_vhost(hostname, A...) _change_vhost(hostname, ##A, NULL)
+int _change_vhost(const char *hostname, ...)
+{
+	va_list ap;
+        va_start(ap, hostname);
+        printf("IN::Host=%s%s\n", hostname, _va_buf(&ap));
+        va_end(ap);
+        return 0;
+}
 
 /*
  * add output filter named 'filtername' to request
  */
-int add_filter(const char *filtername);
+int add_filter(const char *filtername)
+{
+        printf("Filter=%s\n", filtername);
+        return 0;
+}
 
 /*
  * return HTTP status NNN to client
  */
-int return_status(int status);
+int return_status(int status)
+{
+	printf("Status=%d\n", status);
+	return 0;
+}
 
 /*
  * replace occurances of <real> with <fake> within the output document
  */
-int substitute_text(const char *real, const char *fake);
+int substitute_text(const char *real, const char *fake)
+{
+	printf("Substitute=%s,%s\n", real, fake);
+	return 0;
+}
 
 /*
  * set handler to 'handler'
  */
-int set_handler(const char *handler);
+int set_handler(const char *handler)
+{
+	printf("Handler=%s\n", handler);
+	return 0;
+}
 
 /*
  * export variable to CGI
  */
-int _export_var(const char *name, const char *value, ...);
-#define export_var(name, value, A...) _export_var(name, value, ##A, NULL)
+int _export_var(const char *name, const char *value, ...)
+{
+	va_list ap;
+	va_start(ap, value);
+        printf("Export=%s=%s%s\n", name, value, _va_buf(&ap));
+        va_end(ap);
+        return 0;
+}
 
 /*
  * set HTTP query string to 'S'
  */
-int _set_query_string(const char *value, ...);
-#define set_query_string(value, A...) _set_query_string(value, ##A, NULL)
+int _set_query_string(const char *value, ...)
+{
+	va_list ap;
+	va_start(ap, value);
+	printf("QUERY_STRING=%s%s\n",value, _va_buf(&ap));
+	va_end(ap);
+	return 0;
+}
+
 
 /*
  * PATH_INFO=PATH   -- set PATH_INFO for CGI. 
  */
-int _set_path_info(const char *value, ...);
-#define set_path_info(value, A...) _set_path_info(value, ##A, NULL)
+int _set_path_info(const char *value, ...)
+{
+        va_list ap;
+        va_start(ap, value);
+        printf("PATH_INFO=%s%s\n",value, _va_buf(&ap));
+        va_end(ap);
+        return 0;
+}
+
 
 /*
  * set header named 'name' to 'value'
  * type = IN|OUT|ERR
  */
-int _set_header(int type, const char *name, const char *value, ...);
-#define set_header(type, name, value, A...) _set_header(type, name, value, ##A, NULL)
+int _set_header(int type, const char *name, const char *value, ...)
+{
+	char *typestr = "OUT";
+        va_list ap;
+	if(type == IN) typestr = "IN";
+	if(type == ERR) typestr = "ERR";
+        va_start(ap, value);
+        printf("%s::%s=%s%s\n", typestr, name, value, _va_buf(&ap));
+        va_end(ap);
+        return 0;
+}
 
 /*
  * Compare value of cookie named 'name' with 'value'.
  */
-int _cookie(const char *name, const *value, ...);
-#define cookie(name, value, A...) _cookie(name, value, ##A, NULL)
+int _cookie(const char *name, const char *value, ...)
+{
+	const char *s;
+	char *p;
+	char *desc, *cookie;
+        va_list ap;
+
+	desc = malloc(strlen(name)+4);
+	sprintf(desc, "%s=", name);
+
+	va_start(ap, value);
+
+	s = _va_buf(&ap);
+	va_end(ap);
+
+	if(_rf_debug) fprintf(stderr, "cookie(\"%s\", \"%s%s\")\n" , name, value, s);
+
+	cookie = getenv("IN::Cookie");
+	if(!cookie) return 0;
+
+	if(strncmp(cookie, desc, strlen(desc))) {
+		sprintf(desc, "; %s=", name);
+		p = strstr(cookie, desc);
+		if(!p) {
+			sprintf(desc, ";%s=", name);
+			p = strstr(cookie, desc);
+		}
+	} else {
+		p = cookie;
+	}
+	if(!p) return 0;
+
+	cookie = p + strlen(desc);
+
+	if(strncmp(cookie, value, strlen(value))) {
+		if(_rf_debug) fprintf(stderr, "cookie: \"%s\" != \"%s\"\n" , _substr(cookie, strlen(value)), value);
+		return 0;
+	}
+	
+	cookie += strlen(value);
+
+	if(strncmp(cookie, s, strlen(s))) {
+		if(_rf_debug) fprintf(stderr, "cookie: \"%s\" != \"%s\"\n" , _substr(cookie, strlen(s)), s);
+		return 0;
+	}
+	
+	cookie += strlen(s);
+	if(*cookie && *cookie != ';') {
+		if(_rf_debug) fprintf(stderr, "cookie: '%c' at end of value\n" , *cookie);
+		return 0;
+	}
+	
+	return 1;
+}
+
 
 /*
  * Compare value of query_string field
  * The empty string matches field that is present but without a value
  */
 int _query_field(const char *field, const char *value, ...);
-#define query_field(field, value, ##A, NULL);
 
 
 void _rf_init()
