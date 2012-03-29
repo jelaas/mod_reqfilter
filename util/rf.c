@@ -727,7 +727,70 @@ int _cookie(const char *name, const char *value, ...)
  * Compare value of query_string field
  * The empty string matches field that is present but without a value
  */
-int _query_field(const char *field, const char *value, ...);
+int _query_field(const char *field, const char *value, ...)
+{
+	const char *s;
+	char *p;
+	char *desc;
+        va_list ap;
+
+	desc = malloc(strlen(field)+4);
+	if(value) {
+		sprintf(desc, "%s=", field);
+	} else {
+		sprintf(desc, "%s", field);
+	}
+	
+	va_start(ap, value);
+	s = _va_buf(&ap);
+	va_end(ap);
+
+	if(_rf_debug) fprintf(stderr, "query_field(\"%s\", \"%s%s\")\n" , field, value, s);
+
+	if(strncmp(QUERY_STRING, desc, strlen(desc))) {
+		if(value) {
+			sprintf(desc, "&%s=", field);
+		} else {
+			sprintf(desc, "&%s&", field);
+		}
+		p = strstr(QUERY_STRING, desc);
+		if(p && !value) return 1;
+		
+		if(!value && !p) {
+			sprintf(desc, "&%s", field);
+		        p = strstr(QUERY_STRING + strlen(QUERY_STRING) - strlen(field), field);
+			if(p) return 1;
+		}
+	} else {
+		p = QUERY_STRING;
+	}
+	if(!p) return 0;
+	
+	p+=strlen(desc);
+
+	if(value) {
+		if(strncmp(p, value, strlen(value))) {
+			if(_rf_debug) fprintf(stderr, "query_field: \"%s\" != \"%s\"\n" , _substr(p, strlen(value)), value);
+			return 0;
+		}
+		
+		p += strlen(value);
+		
+		if(strncmp(p, s, strlen(s))) {
+			if(_rf_debug) fprintf(stderr, "query_field: \"%s\" != \"%s\"\n" , _substr(p, strlen(s)), s);
+			return 0;
+		}
+		
+		p += strlen(s);
+	}
+	
+	if(*p && *p != '&') {
+		if(_rf_debug) fprintf(stderr, "query_field: '%c' at end of value\n" , *p);
+		return 0;
+	}
+	
+	return 1;	
+}
 
 
 void _rf_init()
