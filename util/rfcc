@@ -12,5 +12,6 @@ if ! gcc -Wall -c -x c -o $1.o - < $T; then
     echo $T failed
     exit 1
 fi
+echo gcc -o $1.rf rf.o $1.o -lpcre && rm -f $T
 gcc -o $1.rf rf.o $1.o -lpcre && rm -f $T
 
