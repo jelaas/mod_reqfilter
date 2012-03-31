@@ -85,17 +85,29 @@ static char *_substr(const char *s, int len)
 	return n;
 }
 
+static char *gethdr(const char *name)
+{
+	char *p;
+	char buf[128];
+	
+	snprintf(buf, sizeof(buf), "IN::%s", name);
+	p = getenv(buf);
+	if(!p) {
+		snprintf(buf, sizeof(buf), "IN__%s", name);
+		p = getenv(buf);
+	}
+	return p;
+}
+
 /*
  * Query hostname DNS-format.
  * Example: host("www.aaa.bb")
  */
 int host(const char *hostname)
 {
-	char *u = getenv("IN::Host");
-	if(!u) {
-		u = getenv("IN__Host");
-		if(!u) return 0;
-	}
+	char *u = gethdr("Host");
+	if(!u) return 0;
+	
 	if(_rf_debug) fprintf(stderr, "host() strcmp(\"%s\", \"%s\") == %d\n", hostname, u, strcmp(hostname, u));
 	return strcmp(hostname, u)==0;
 }
@@ -667,7 +679,7 @@ int _set_header(int type, const char *name, const char *value, ...)
 /*
  * Compare value of cookie named 'name' with 'value'.
  */
-int _cookie(const char *name, const char *value, ...)
+int _cookie(const char *name, ...)
 {
 	const char *s;
 	char *p;
@@ -677,14 +689,14 @@ int _cookie(const char *name, const char *value, ...)
 	desc = malloc(strlen(name)+4);
 	sprintf(desc, "%s=", name);
 
-	va_start(ap, value);
+	va_start(ap, name);
 
 	s = _va_buf(&ap);
 	va_end(ap);
 
-	if(_rf_debug) fprintf(stderr, "cookie(\"%s\", \"%s%s\")\n" , name, value, s);
+	if(_rf_debug) fprintf(stderr, "cookie(\"%s\", \"%s\")\n" , name, s);
 
-	cookie = getenv("IN::Cookie");
+	cookie = gethdr("Cookie");
 	if(!cookie) return 0;
 
 	if(strncmp(cookie, desc, strlen(desc))) {
@@ -700,13 +712,6 @@ int _cookie(const char *name, const char *value, ...)
 	if(!p) return 0;
 
 	cookie = p + strlen(desc);
-
-	if(strncmp(cookie, value, strlen(value))) {
-		if(_rf_debug) fprintf(stderr, "cookie: \"%s\" != \"%s\"\n" , _substr(cookie, strlen(value)), value);
-		return 0;
-	}
-	
-	cookie += strlen(value);
 
 	if(strncmp(cookie, s, strlen(s))) {
 		if(_rf_debug) fprintf(stderr, "cookie: \"%s\" != \"%s\"\n" , _substr(cookie, strlen(s)), s);
@@ -727,39 +732,39 @@ int _cookie(const char *name, const char *value, ...)
  * Compare value of query_string field
  * The empty string matches field that is present but without a value
  */
-int _query_field(const char *field, const char *value, ...)
+int _query_field(const char *field, ...)
 {
-	const char *s;
+	const char *value;
 	char *p;
 	char *desc;
         va_list ap;
 
+	va_start(ap, field);
+	value = _va_buf(&ap);
+	va_end(ap);
+
 	desc = malloc(strlen(field)+4);
-	if(value) {
+	if(*value) {
 		sprintf(desc, "%s=", field);
 	} else {
 		sprintf(desc, "%s", field);
 	}
 	
-	va_start(ap, value);
-	s = _va_buf(&ap);
-	va_end(ap);
-
-	if(_rf_debug) fprintf(stderr, "query_field(\"%s\", \"%s%s\")\n" , field, value, s);
+	if(_rf_debug) fprintf(stderr, "query_field(\"%s\", \"%s\")\n" , field, value);
 
 	if(strncmp(QUERY_STRING, desc, strlen(desc))) {
-		if(value) {
+		if(*value) {
 			sprintf(desc, "&%s=", field);
 		} else {
 			sprintf(desc, "&%s&", field);
 		}
 		p = strstr(QUERY_STRING, desc);
-		if(p && !value) return 1;
+		if(p && !value) goto matched;
 		
 		if(!value && !p) {
 			sprintf(desc, "&%s", field);
 		        p = strstr(QUERY_STRING + strlen(QUERY_STRING) - strlen(field), field);
-			if(p) return 1;
+			if(p) goto matched;
 		}
 	} else {
 		p = QUERY_STRING;
@@ -768,20 +773,13 @@ int _query_field(const char *field, const char *value, ...)
 	
 	p+=strlen(desc);
 
-	if(value) {
+	if(*value) {
 		if(strncmp(p, value, strlen(value))) {
 			if(_rf_debug) fprintf(stderr, "query_field: \"%s\" != \"%s\"\n" , _substr(p, strlen(value)), value);
 			return 0;
 		}
 		
 		p += strlen(value);
-		
-		if(strncmp(p, s, strlen(s))) {
-			if(_rf_debug) fprintf(stderr, "query_field: \"%s\" != \"%s\"\n" , _substr(p, strlen(s)), s);
-			return 0;
-		}
-		
-		p += strlen(s);
 	}
 	
 	if(*p && *p != '&') {
@@ -789,6 +787,8 @@ int _query_field(const char *field, const char *value, ...)
 		return 0;
 	}
 	
+matched:
+	if(_rf_debug) fprintf(stderr, "query_field(\"%s\", \"%s\") == 1 (matched)\n" , field, value);
 	return 1;	
 }
 

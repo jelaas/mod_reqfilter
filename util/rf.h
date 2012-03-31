@@ -165,17 +165,17 @@ int _set_header(int type, const char *name, const char *value, ...);
 #define set_header(type, name, value, A...) _set_header(type, name, value, ##A, NULL)
 
 /*
- * Compare value of cookie named 'name' with 'value'.
+ * Compare value of cookie named 'name' with value.
  */
-int _cookie(const char *name, const char *value, ...);
-#define cookie(name, value, A...) _cookie(name, value, ##A, NULL)
+int _cookie(const char *name, ...);
+#define cookie(name, A...) _cookie(name, ##A, NULL)
 
 /*
  * Compare value of query_string field
  * The empty string matches field that is present but without a value
  */
-int _query_field(const char *field, const char *value, ...);
-#define query_field(field, value, A...) query_field(field, value, ##A, NULL)
+int _query_field(const char *field, ...);
+#define query_field(field, A...) _query_field(field, ##A, NULL)
 
 /*
  * We are done processing and return to the request handling.
