@@ -60,6 +60,11 @@ int regex(const char *buffer, const char *expr);
 int path_regex(const char *expr);
 
 /*
+ * Set document root for request
+ */
+int document_root(const char *path);
+
+/*
  * The hostname to send for a proxy-request.
  */
 int proxy_host(const char *hostname);

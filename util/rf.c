@@ -623,6 +623,15 @@ int set_handler(const char *handler)
 }
 
 /*
+ * Set document root for request
+ */
+int document_root(const char *path)
+{
+	printf("DocumentRoot=%s\n", path);
+	return 0;
+}
+
+/*
  * export variable to CGI
  */
 int _export_var(const char *name, const char *value, ...)

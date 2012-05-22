@@ -36,19 +36,20 @@ DOCUMENT_URI=URI               -- if URI begins with '/' rewrite local path. If 
 Proxy-reverse-alias=real,fake  -- URI translation of headers when proxying
 Substitute=real,fake           -- replace occurances of <real> with <fake> within the output document
 Proxy-host=HOSTNAME            -- hostname for proxyrequest
-IN::Host=VHOST	 -- set incoming host header and switch vhost
-Filter=NNN       -- add output filter named 'NNN' to request
-Status=NNN       -- return HTTP status NNN to client
-Redirect=LOC     -- redirect to URI 'LOC'
-Filename=FN      -- serve file 'FN'
-Handler=HHH	 -- set handler to HHH
-CGI=FN           -- execute 'FN' as CGI
-Export=NAME=VAL  -- export variable to CGI
-QUERY_STRING=S   -- set HTTP query string to 'S'
-PATH_INFO=PATH   -- set PATH_INFO for CGI.
-IN::NNN=VVV      -- set incoming request header 'NNN' to 'VVV'
-OUT::NNN=VVV     -- set outgoing header 'NNN' to 'VVV'
-ERR::NNN=VVV     -- set outgoing error header 'NNN' to 'VVV' (If status is set to error).
+IN::Host=VHOST	  -- set incoming host header and switch vhost
+DocumentRoot=PATH -- set document root for request
+Filter=NNN        -- add output filter named 'NNN' to request
+Status=NNN        -- return HTTP status NNN to client
+Redirect=LOC      -- redirect to URI 'LOC'
+Filename=FN       -- serve file 'FN'
+Handler=HHH	  -- set handler to HHH
+CGI=FN            -- execute 'FN' as CGI
+Export=NAME=VAL   -- export variable to CGI
+QUERY_STRING=S    -- set HTTP query string to 'S'
+PATH_INFO=PATH    -- set PATH_INFO for CGI.
+IN::NNN=VVV       -- set incoming request header 'NNN' to 'VVV'
+OUT::NNN=VVV      -- set outgoing header 'NNN' to 'VVV'
+ERR::NNN=VVV      -- set outgoing error header 'NNN' to 'VVV' (If status is set to error).
 
 
 Environment variables set for invoked ReqFilter program

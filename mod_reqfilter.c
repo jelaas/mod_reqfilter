@@ -175,6 +175,8 @@ static int rf_translate(request_rec *r)
 	filename = (char*) apr_table_get(r->notes, "req-filename");
 	if(filename) {
 		r->filename = filename;
+		r->canonical_filename = r->filename;
+		
 		if(cfg->loglevel >= APLOG_DEBUG) 
 			ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server, "rf: filename set to %s", filename);
 		return OK;
@@ -329,6 +331,18 @@ static int rf_post_read_request(request_rec *r)
 				
 				if(strncmp(buf, "Filename=", 9)==0) {
 					filename = apr_pstrdup( r->pool, buf+9 );
+					continue;
+				}
+				if(strncmp(buf, "DocumentRoot=", 13)==0) {
+					apr_status_t rv;
+					if ((rv = apr_filepath_merge(&filename, buf+13, r->uri,
+								     APR_FILEPATH_TRUENAME
+								     | APR_FILEPATH_SECUREROOT, r->pool))
+					    != APR_SUCCESS) {
+						ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+							      "Cannot map %s to file", r->the_request);
+						return HTTP_FORBIDDEN;
+					}
 					continue;
 				}
 				
