@@ -53,13 +53,15 @@ ERR::NNN=VVV     -- set outgoing error header 'NNN' to 'VVV' (If status is set t
 
 Environment variables set for invoked ReqFilter program
 -------------------------------------------------------
-IN::<header>     -- one variable for each input header in request.
+IN::<header>     -- One variable for each input header in request.
 DOCUMENT_URI     -- Document path requested
 QUERY_STRING     -- What comes after requestpath (after '?').
 method           -- GET, POST etc.
 protocol         -- 0.9, 1.0, 1.1
-servername       -- name of the server according to apache
-remote_ip        -- client IP address
-local_ip         -- server IP address
-status	         -- status of the response. Only for ReqFilterError.
+servername       -- Name of the server according to apache
+remote_ip        -- Client IP address
+local_ip         -- Server IP address
+status	         -- Status of the response. Only for ReqFilterError.
+FILENAME         -- Absolute path to file. Only for ReqFilterError.
+PROXY_HOST       -- Hostname for proxyrequest. Only for ReqFilterError.
 
