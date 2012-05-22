@@ -443,8 +443,8 @@ static int rf_post_read_request(request_rec *r)
 		}
 		if(cfg->loglevel >= APLOG_ERR) { 
 			ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "rf: Illegal status code: %d", n);
-			return HTTP_INTERNAL_SERVER_ERROR;
 		}
+		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 	
 	if(location) {
