@@ -167,15 +167,38 @@ static const char **rf_make_err_env(request_rec *r)
 static int rf_translate(request_rec *r)
 {
 	rf_cfg *cfg;
-	char *filename, *cgi;
+	char *filename, *cgi, *docroot;
 
 	cfg = ap_get_module_config(r->server->module_config, &reqfilter_module);
 	if(!cfg->prg) return DECLINED;
 	
+	docroot = (char*) apr_table_get(r->notes, "req-docroot");
+#if 0
+	if(docroot) {
+		apr_status_t rv;
+		char *addpath;
+		addpath = r->uri;
+		if(addpath[0] == '/') addpath++;
+		if ((rv = apr_filepath_merge(&r->filename, docroot, addpath,
+					     APR_FILEPATH_TRUENAME
+					     | APR_FILEPATH_SECUREROOT, r->pool))
+		    != APR_SUCCESS) {
+			ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
+				     "rf: Cannot map %s to file", r->the_request);
+			return HTTP_INTERNAL_SERVER_ERROR;
+		}
+		if(cfg->loglevel >= APLOG_DEBUG) 
+			ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
+				     "rf: DocumentRoot to %s", docroot);
+		if(cfg->loglevel >= APLOG_DEBUG) 
+			ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
+				     "rf [docroot]: filename set to %s", r->filename);
+		return OK;
+	}
+#endif
 	filename = (char*) apr_table_get(r->notes, "req-filename");
 	if(filename) {
 		r->filename = filename;
-		r->canonical_filename = r->filename;
 		
 		if(cfg->loglevel >= APLOG_DEBUG) 
 			ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server, "rf: filename set to %s", filename);
@@ -237,7 +260,7 @@ static int rf_post_read_request(request_rec *r)
 		proc = rf_ext_child(r->pool, cfg->prg, envp, 0);
 		if(!proc) {
 			if(cfg->loglevel >= APLOG_ERR)
-				ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
+				ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
 					     "rf: failed to run prg \"%s\"", cfg->prg);
 		}
 		if(proc) {
@@ -247,6 +270,8 @@ static int rf_post_read_request(request_rec *r)
 				/* read the command's output through the pipe */
 				rv = apr_file_gets(buf, sizeof(buf), proc->out);
 				if (APR_STATUS_IS_EOF(rv)) {
+					if(cfg->loglevel >= APLOG_DEBUG)
+						ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server, "rf: read EOF");
 					break;
 				}
 				
@@ -263,6 +288,11 @@ static int rf_post_read_request(request_rec *r)
 					i = strlen(buf);
 					if(buf[i-1] == '\n')
 						buf[i-1] = 0;
+				}
+				
+				if(strncmp(buf, "Log=", 4)==0) {
+					ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server, "rf: log \"%s\"", buf+4);
+					continue;
 				}
 				
 				if(strncmp(buf, "DOCUMENT_URI=", 13)==0) {
@@ -334,15 +364,7 @@ static int rf_post_read_request(request_rec *r)
 					continue;
 				}
 				if(strncmp(buf, "DocumentRoot=", 13)==0) {
-					apr_status_t rv;
-					if ((rv = apr_filepath_merge(&filename, buf+13, r->uri,
-								     APR_FILEPATH_TRUENAME
-								     | APR_FILEPATH_SECUREROOT, r->pool))
-					    != APR_SUCCESS) {
-						ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-							      "Cannot map %s to file", r->the_request);
-						return HTTP_FORBIDDEN;
-					}
+					apr_table_set(r->notes, "req-docroot", apr_pstrcat(r->pool, buf+13, NULL));
 					continue;
 				}
 				
@@ -806,7 +828,7 @@ static void rf_register_hooks(apr_pool_t *p)
 	ap_hook_insert_filter(rf_insert_filter, NULL, NULL, APR_HOOK_MIDDLE) ;
 	ap_hook_post_read_request(rf_post_read_request, NULL, NULL,
 				  APR_HOOK_MIDDLE);
-	ap_hook_translate_name(rf_translate,NULL,NULL,APR_HOOK_MIDDLE);
+	ap_hook_translate_name(rf_translate, NULL, NULL, APR_HOOK_FIRST);
 	ap_hook_log_transaction(rf_logger, NULL, NULL, APR_HOOK_MIDDLE);
 	rf_filter_rec = ap_register_output_filter("rf-output-filter", rf_filter,
 						  NULL, AP_FTYPE_RESOURCE);
