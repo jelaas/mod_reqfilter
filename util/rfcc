@@ -13,7 +13,7 @@ echo -n "char const *_DATE = \"" >> $1_text.h
 echo -n $(date) >> $1_text.h
 echo "\\n\";" >> $1_text.h
 
-(echo -e "#include <string.h>\\n#include <unistd.h>\\n#include \"$1_text.h\"\\n#include \"rf.h\"\\nint main(int argc, char **argv){if(argc>1&&!strcmp(argv[1],\"--date\")){write(1,_DATE,strlen(_DATE));_exit(0);}if(argc>1&&!strcmp(argv[1],\"--id\")){write(1,_ID,strlen(_ID));_exit(0);}if(argc>1&&!strcmp(argv[1],\"-L\")){write(1,_TC,strlen(_TC));_exit(0);}if(argc>1&&!strcmp(argv[1],\"-D\"))debug();_rf_init();\\n#line 0 \"$1.conf\"\\n"; cat $1.conf; echo "_exit(0);}") > $T
+(echo -e "#include <stdio.h>\\n#include <string.h>\\n#include <unistd.h>\\n#include \"$1_text.h\"\\n#include \"rf.h\"\\nint main(int argc, char **argv){if(argc>1&&!strcmp(argv[1],\"--date\")){write(1,_DATE,strlen(_DATE));_exit(0);}if(argc>1&&!strcmp(argv[1],\"--id\")){write(1,_ID,strlen(_ID));_exit(0);}if(argc>1&&!strcmp(argv[1],\"-L\")){write(1,_TC,strlen(_TC));_exit(0);}if(argc>1&&!strcmp(argv[1],\"-D\"))debug();_rf_init();\\n#line 0 \"$1.conf\"\\n"; cat $1.conf; echo "fflush(stdout);_exit(0);}") > $T
 echo "gcc -Wall -c -x c -o $1.o < $T"
 if ! gcc -Wall -c -x c -o $1.o - < $T; then
     echo $T failed

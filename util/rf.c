@@ -810,11 +810,56 @@ void _rf_init()
 	if(!QUERY_STRING) QUERY_STRING="";
 }
 
+static int printenv(int fd, const char *env)
+{
+	char *p;
+	p = getenv(env);
+	write(fd, env, strlen(env));
+	if(p) {
+		write(fd, "=", 1);
+		write(fd, p, strlen(p));
+	}
+	write(fd, "\n", 1);
+	return 0;
+}
+
+/*
+ * Dump env
+ */
+int dump(const char *fn)
+{
+	int fd;
+	fd = open(fn, O_WRONLY|O_CREAT|O_TRUNC, 0600);
+	if(fd < 0) return -1;
+	
+	printenv(fd, "DOCUMENT_URI");
+	printenv(fd, "IN::Host");
+	printenv(fd, "QUERY_STRING");
+	printenv(fd, "method");
+	printenv(fd, "protocol");
+	printenv(fd, "servername");
+	printenv(fd, "remote_ip");
+	printenv(fd, "local_ip");
+	close(fd);
+	return 0;
+}
+
+/*
+ * msg: Log message
+ */
+int msg(const char *message)
+{
+	printf("Log=%s\n", message);
+	return 0;
+}
+
+
 /*
  * We are done processing and return to the request handling.
  */
 void done()
 {
+	fflush(stdout);
 	_exit(0);
 }
 

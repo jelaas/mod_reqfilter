@@ -18,6 +18,17 @@ char regex_group[NRECORDS][RECSIZE];
 extern char *DOCUMENT_URI;
 char *QUERY_STRING;
 #endif
+
+/*
+ * Dump env
+ */
+int dump(const char *filename);
+
+/*
+ * msg: Log message
+ */
+int msg(const char *message);
+
 /*
  * Query hostname DNS-format.
  * Example: host("www.aaa.bb")
