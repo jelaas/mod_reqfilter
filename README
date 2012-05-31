@@ -50,7 +50,7 @@ PATH_INFO=PATH    -- set PATH_INFO for CGI.
 IN::NNN=VVV       -- set incoming request header 'NNN' to 'VVV'
 OUT::NNN=VVV      -- set outgoing header 'NNN' to 'VVV'
 ERR::NNN=VVV      -- set outgoing error header 'NNN' to 'VVV' (If status is set to error).
-
+Log=MSG           -- Log message MSG to apache log
 
 Environment variables set for invoked ReqFilter program
 -------------------------------------------------------
